@@ -1,29 +1,51 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Celta Juegos</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Juegos del Celta</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #002244;
+    color: white;
+    text-align: center;
+    padding: 50px;
+  }
+  h1 {
+    color: #7ec0ee;
+  }
+  .menu {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 300px;
+    margin: auto;
+  }
+  .btn {
+    background: #7ec0ee;
+    border: none;
+    padding: 15px;
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 10px;
+    transition: 0.2s;
+  }
+  .btn:hover {
+    background: #5daedc;
+  }
+</style>
 </head>
 <body>
-    <header>
-        <h1>🎯 Celta Juegos</h1>
-        <p>Juega cada día, revive partidas anteriores</p>
-    </header>
 
-    <main class="grid">
-        <a href="juegos/juego1.html" class="card">Juego 1</a>
-        <a href="juegos/juego2.html" class="card">Juego 2</a>
-        <a href="juegos/juego3.html" class="card">Juego 3</a>
-        <a href="juegos/juego4.html" class="card">Juego 4</a>
-        <a href="juegos/juego5.html" class="card">Juego 5</a>
-        <a href="juegos/juego6.html" class="card">Juego 6</a>
-        <a href="juegos/juego7.html" class="card">Juego 7</a>
-    </main>
+<h1>⚽ Juegos del Celta ⚽</h1>
+<p>Elige un juego para empezar:</p>
 
-    <footer>
-        <p>© 2025 Celta Juegos. No oficial. Inspirado en futbol-11.com</p>
-    </footer>
+<div class="menu">
+  <button class="btn" onclick="location.href='wordle.html'">Juego 1: Wordle</button>
+  <button class="btn" onclick="location.href='bingo.html'">Juego 2: Bingo</button>
+  <button class="btn" onclick="location.href='once.html'">Juego 3: Adivina el 11</button>
+</div>
+
 </body>
 </html>
