@@ -1,31 +1,249 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Bingo Celta</title>
+<style>
+  :root{--bg:#fafafa;--card:#fff;--accent:#1f7a8c}
+  body{font-family:system-ui,Arial;margin:0;background:var(--bg);color:#042a2b;display:flex;flex-direction:column;align-items:center;padding:18px}
+  h1{margin:6px 0}
+  #game{display:flex;gap:18px;align-items:flex-start;max-width:1000px;width:100%}
+  #card{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:560px}
+  .cell{background:var(--card);border-radius:8px;padding:12px;min-height:70px;display:flex;align-items:center;justify-content:center;text-align:center;font-weight:600;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+  .cell.marked{background:#6aaa64;color:white}
+  .cell.wrong{background:#d9534f;color:white}
+  #side{width:320px;padding:12px}
+  #playerBox{background:var(--card);padding:12px;border-radius:8px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+  img.pimg{width:120px;height:120px;border-radius:8px;object-fit:cover;margin:8px auto;display:block}
+  #controls{margin-top:8px;display:flex;gap:8px;justify-content:center}
+  button{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:white;cursor:pointer}
+  #timer{font-weight:700;font-size:18px;margin-top:6px}
+  #status{margin-top:8px}
+</style>
+</head>
+<body>
 <h1>Bingo Celta</h1>
-<div id="bingo" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
-<button onclick="startBingo()">Empezar</button>
-<div id="jugador"></div>
+<div class="small">Marca si el jugador mostrado cumple la casilla. 10s por jugador. Skip penaliza (avanza un jugador extra).</div>
+
+<div id="game">
+  <div id="card"></div>
+
+  <div id="side">
+    <div id="playerBox">
+      <div id="playerName" style="font-weight:800"></div>
+      <img id="playerImg" class="pimg" src="" alt="" style="display:none" />
+      <div id="timer">10</div>
+      <div id="controls">
+        <button id="startBtn">Empezar</button>
+        <button id="skipBtn">Skip (-penal)</button>
+      </div>
+      <div id="status"></div>
+    </div>
+    <div style="margin-top:12px">
+      <strong>Penalizaciones:</strong> <span id="penCount">0</span><br>
+      <strong>Jugadores mostrados:</strong> <span id="shownCount">0</span>
+    </div>
+  </div>
+</div>
 
 <script>
-let jugadores = [];
-let conceptos = [
-  "Canterano", "≥1.90m", "≤1.68m", "Goleador de temporada",
-  "Pierna izquierda", "Pierna derecha", "Defensa", "Delantero",
-  "Centrocampista", "Extranjero", "≥200 partidos", "≥50 goles",
-  "Jugó en segunda", "≥5 equipos", "Menos de 3 años en el club", "≥10 años en el club"
+/* Bingo Celta - implementación original inspirada en interfaces tipo "football bingo".
+   reglas rápidas:
+   - 16 casillas (4x4) con conceptos
+   - sale un jugador cada 10s
+   - clickar una casilla la marca si el jugador cumple; si aciertas se vuelve verde
+   - si fallas (marcas y no cumple) se aplica penalización: avanzamos un jugador extra (se considera "resta uno adicional")
+   - botón Skip: avanza al siguiente jugador e incrementa penalización
+   - objetivo: completar una línea (fila/col/diagonal) marcada en verde
+*/
+
+const CONCEPTS = [
+  "Canterano",
+  "Pierna izquierda",
+  "Pierna derecha",
+  "Delantero",
+  "Defensa",
+  "Centrocampista",
+  "Portero",
+  "Altura ≥ 1.90m",
+  "Altura ≤ 1.68m",
+  "≥ 200 partidos",
+  "≥ 50 goles",
+  "Goleador de temporada",
+  "≥ 5 equipos",
+  "Extranjero (no ESP)",
+  "Jugó en Segunda (aprox.)",
+  "≥ 10 años en el club"
 ];
 
-fetch('data/jugadores.json')
-  .then(res => res.json())
-  .then(data => jugadores = data);
+let jugadores = [];
+let playersQueue = []; // shuffled subset (max 42)
+let currentIndex = 0;
+let timer = null;
+let timeLeft = 10;
+let penalizaciones = 0;
+let shown = 0;
+let marks = new Array(16).fill(false);
 
-function startBingo() {
-  document.getElementById("bingo").innerHTML = conceptos
-    .map(c => `<div onclick="this.style.background='lightgreen'">${c}</div>`).join("");
+function normalizeName(s){ return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase(); }
 
-  let idx = 0;
-  const intervalo = setInterval(() => {
-    if (idx >= jugadores.length) { clearInterval(intervalo); return; }
-    const j = jugadores[idx];
-    document.getElementById("jugador").innerText = `${j.nombre} ${j.apellido}`;
-    idx++;
-  }, 10000);
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]] } return a; }
+
+function buildCard(){
+  const card = document.getElementById('card'); card.innerHTML='';
+  CONCEPTS.forEach((c,i)=>{
+    const div = document.createElement('div');
+    div.className='cell'; div.dataset.i=i; div.textContent = c;
+    div.addEventListener('click', ()=> onCellClick(i, div));
+    card.appendChild(div);
+  });
 }
+
+function onCellClick(i, div){
+  if(!playersQueue.length || currentIndex >= playersQueue.length) return;
+  const player = playersQueue[currentIndex];
+  const ok = matchConcept(CONCEPTS[i], player);
+  if(ok){
+    div.classList.add('marked'); marks[i]=true;
+    checkBingo();
+  } else {
+    // fallo: penalización -> avanzamos un jugador extra (como pediste "se resta uno adicional")
+    div.classList.add('wrong');
+    penalizaciones++;
+    document.getElementById('penCount').textContent = penalizaciones;
+    advancePlayer(1); // extra advance
+  }
+}
+
+function matchConcept(concept, p){
+  // p es jugador del JSON
+  if(!p) return false;
+  switch(concept){
+    case "Canterano": return !!p.canterano;
+    case "Pierna izquierda": return (p.pierna_buena || '').toLowerCase().includes('izquierda') || (p.pierna_buena||'').toLowerCase().includes('izq');
+    case "Pierna derecha": return (p.pierna_buena || '').toLowerCase().includes('derecha') || (p.pierna_buena||'').toLowerCase().includes('der');
+    case "Delantero": return (p.posicion || '').toLowerCase().includes('delantero') || (p.posicion||'').toLowerCase().includes('ataque');
+    case "Defensa": return (p.posicion || '').toLowerCase().includes('defensa') || (p.posicion||'').toLowerCase().includes('back') || (p.posicion||'').toLowerCase().includes('central');
+    case "Centrocampista": return (p.posicion || '').toLowerCase().includes('centro') || (p.posicion||'').toLowerCase().includes('medi');
+    case "Portero": return (p.posicion || '').toLowerCase().includes('portero') || (p.posicion||'').toLowerCase().includes('goal');
+    case "Altura ≥ 1.90m": return (p.altura || 0) >= 190 || (p.altura || 0) >= 1.90;
+    case "Altura ≤ 1.68m": return (p.altura || 0) <= 168 || (p.altura || 0) <= 1.68;
+    case "≥ 200 partidos": return (p.partidos || 0) >= 200;
+    case "≥ 50 goles": return (p.goles || 0) >= 50;
+    case "Goleador de temporada": return !!p.goleador_temporada;
+    case "≥ 5 equipos": return (p.equipos && p.equipos.length >= 5);
+    case "Extranjero (no ESP)": return (p.nacionalidad || '').toLowerCase() !== 'españa' && (p.nacionalidad || '').toLowerCase() !== 'espana' && (p.nacionalidad || '') !== '';
+    case "Jugó en Segunda (aprox.)":
+      // aproximación: si alguno de sus equipos contiene palabras habituales de 2ª o equipos conocidos,
+      // o si la lista de equipos incluye substring 'B' o 'Segunda' -> heurística.
+      if(!p.equipos) return false;
+      return p.equipos.some(t => /segund|segunda|b\b|_b\b/i.test(t)) || p.equipos.length > 4;
+    case "≥ 10 años en el club":
+      if(!p.anio_llegada || !p.anio_salida) return false;
+      // si anio_salida null -> en activo, no contamos (puedes adaptar)
+      return (p.anio_salida && (p.anio_salida - p.anio_llegada) >= 10);
+    default: return false;
+  }
+}
+
+function startGame(){
+  penalizaciones = 0; shown = 0; currentIndex = 0; marks.fill(false);
+  document.getElementById('penCount').textContent = penalizaciones;
+  document.getElementById('shownCount').textContent = shown;
+  // reset visuals
+  document.querySelectorAll('.cell').forEach(c=>{ c.classList.remove('marked','wrong')});
+  // prepare queue
+  const pool = shuffle([...jugadores]);
+  playersQueue = pool.slice(0, Math.min(pool.length, 42));
+  showPlayer();
+  if(timer) clearInterval(timer);
+  timeLeft = 10;
+  timer = setInterval(tick, 1000);
+}
+
+function showPlayer(){
+  const elName = document.getElementById('playerName');
+  const elImg = document.getElementById('playerImg');
+  if(currentIndex >= playersQueue.length){
+    elName.textContent = 'No hay más jugadores';
+    elImg.style.display = 'none';
+    clearInterval(timer);
+    return;
+  }
+  const p = playersQueue[currentIndex];
+  elName.textContent = (p.nombre || '') + ' ' + (p.apellido || '');
+  if(p.foto){
+    elImg.src = p.foto; elImg.style.display = 'block';
+  } else { elImg.style.display = 'none'; }
+  document.getElementById('shownCount').textContent = ++shown;
+  timeLeft = 10;
+  document.getElementById('timer').textContent = timeLeft;
+}
+
+function tick(){
+  timeLeft--;
+  document.getElementById('timer').textContent = timeLeft;
+  if(timeLeft <= 0){
+    // time out -> considered fail (aplica la "resta uno adicional")
+    penalizaciones++;
+    document.getElementById('penCount').textContent = penalizaciones;
+    advancePlayer(1); // extra skip
+  }
+}
+
+function advancePlayer(extra=0){
+  currentIndex += 1 + extra; // advance one by default; extra additional
+  if(currentIndex < playersQueue.length){
+    showPlayer();
+  } else {
+    // fin de jugadores
+    document.getElementById('playerName').textContent = 'No hay más jugadores';
+    document.getElementById('playerImg').style.display = 'none';
+    clearInterval(timer);
+  }
+}
+
+function checkBingo(){
+  // marks[] is boolean[16]; check rows, cols, diags
+  const m = marks;
+  // rows
+  for(let r=0;r<4;r++){
+    if(m[r*4] && m[r*4+1] && m[r*4+2] && m[r*4+3]) { win(); return; }
+  }
+  // cols
+  for(let c=0;c<4;c++){
+    if(m[c]&&m[c+4]&&m[c+8]&&m[c+12]){ win(); return; }
+  }
+  // diags
+  if(m[0]&&m[5]&&m[10]&&m[15]) { win(); return; }
+  if(m[3]&&m[6]&&m[9]&&m[12]) { win(); return; }
+}
+
+function win(){
+  alert('¡BINGO! Has conseguido una línea ✅');
+  clearInterval(timer);
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('skipBtn').addEventListener('click', ()=>{
+  penalizaciones++;
+  document.getElementById('penCount').textContent = penalizaciones;
+  advancePlayer(1); // skip also advances one extra as penal
+});
+
+// carga jugadores
+fetch('data/jugadores.json').then(r=>r.json()).then(data=>{
+  jugadores = data;
+  if(!Array.isArray(jugadores) || jugadores.length === 0){
+    document.getElementById('playerName').textContent = 'data/jugadores.json vacío o mal formado';
+    return;
+  }
+  buildCard();
+}).catch(err=>{
+  document.getElementById('playerName').textContent = 'No se pudo cargar data/jugadores.json';
+  console.error(err);
+});
 </script>
+</body>
+</html>
