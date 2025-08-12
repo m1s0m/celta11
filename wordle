@@ -1,0 +1,46 @@
+<h1>Wordle Celta</h1>
+<div id="grid"></div>
+<input id="guess" maxlength="10">
+<button onclick="checkGuess()">Probar</button>
+
+<script>
+let jugadores = [];
+let palabraSecreta = "";
+let intentos = 6;
+
+fetch('data/jugadores.json')
+  .then(res => res.json())
+  .then(data => {
+    jugadores = data;
+    const elegido = jugadores[Math.floor(Math.random() * jugadores.length)];
+    palabraSecreta = elegido.apellido.toUpperCase();
+    console.log("Palabra secreta:", palabraSecreta); // Para pruebas
+  });
+
+function checkGuess() {
+  const input = document.getElementById("guess");
+  const intento = input.value.toUpperCase();
+  if (!intento) return;
+
+  let resultado = "";
+  for (let i = 0; i < palabraSecreta.length; i++) {
+    if (intento[i] === palabraSecreta[i]) {
+      resultado += `<span style="background:green;color:white">${intento[i]}</span>`;
+    } else if (palabraSecreta.includes(intento[i])) {
+      resultado += `<span style="background:orange;color:white">${intento[i]}</span>`;
+    } else {
+      resultado += `<span style="background:grey;color:white">${intento[i]}</span>`;
+    }
+  }
+
+  document.getElementById("grid").innerHTML += `<div>${resultado}</div>`;
+  input.value = "";
+  intentos--;
+
+  if (intento === palabraSecreta) {
+    alert("¡Acertaste!");
+  } else if (intentos === 0) {
+    alert("Perdiste, era: " + palabraSecreta);
+  }
+}
+</script>
