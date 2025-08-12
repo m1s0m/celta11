@@ -1,46 +1,51 @@
-<h1>Wordle Celta</h1>
-<div id="grid"></div>
-<input id="guess" maxlength="10">
-<button onclick="checkGuess()">Probar</button>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Wordle Celta — Apellidos</title>
+<style>
+  :root{--bg:#e9f6ff;--card:#fff;--accent:#0074D9}
+  body{font-family:system-ui,Arial;margin:0;background:var(--bg);color:#023047;display:flex;flex-direction:column;align-items:center;padding:24px}
+  header{width:100%;max-width:900px;text-align:center}
+  h1{margin:6px 0}
+  #controls{display:flex;gap:8px;align-items:center;justify-content:center;margin:12px 0}
+  button, input[type="button"]{padding:8px 12px;border-radius:8px;border:0;background:var(--accent);color:white;cursor:pointer}
+  button.secondary{background:#5daedc}
+  #grid{display:grid;gap:6px;margin:12px 0}
+  .row{display:flex;gap:6px;justify-content:center}
+  .cell{width:46px;height:46px;border-radius:6px;display:flex;align-items:center;justify-content:center;background:var(--card);box-shadow:0 1px 0 rgba(0,0,0,.06);font-weight:700}
+  .cell.correct{background:#6aaa64;color:white}
+  .cell.present{background:#c9b458;color:white}
+  .cell.absent{background:#787c7e;color:white}
+  #inputRow{margin-top:10px;display:flex;gap:8px;justify-content:center}
+  #msg{min-height:24px;text-align:center;margin-top:6px}
+  .small{font-size:13px;color:#334155}
+  img.player-photo{max-width:120px;border-radius:8px;display:block;margin:8px auto}
+</style>
+</head>
+<body>
+<header>
+  <h1>Wordle Celta — Apellidos</h1>
+  <div class="small">6 intentos. Usa apellidos (sin acentos ni espacios). Puedes cambiar de día ← →</div>
+</header>
+
+<div id="controls">
+  <button id="prevDay" title="Día anterior">◀</button>
+  <div id="dateLabel"></div>
+  <button id="nextDay" title="Siguiente día">▶</button>
+</div>
+
+<div id="puzzleContainer" style="width:100%;max-width:900px">
+  <div id="photoWrap" style="text-align:center;"></div>
+  <div id="grid"></div>
+
+  <div id="inputRow">
+    <input id="guessInput" placeholder="Escribe apellido" autocomplete="off" />
+    <button id="submitBtn">Probar</button>
+  </div>
+
+  <div id="msg"></div>
+</div>
 
 <script>
-let jugadores = [];
-let palabraSecreta = "";
-let intentos = 6;
-
-fetch('data/jugadores.json')
-  .then(res => res.json())
-  .then(data => {
-    jugadores = data;
-    const elegido = jugadores[Math.floor(Math.random() * jugadores.length)];
-    palabraSecreta = elegido.apellido.toUpperCase();
-    console.log("Palabra secreta:", palabraSecreta); // Para pruebas
-  });
-
-function checkGuess() {
-  const input = document.getElementById("guess");
-  const intento = input.value.toUpperCase();
-  if (!intento) return;
-
-  let resultado = "";
-  for (let i = 0; i < palabraSecreta.length; i++) {
-    if (intento[i] === palabraSecreta[i]) {
-      resultado += `<span style="background:green;color:white">${intento[i]}</span>`;
-    } else if (palabraSecreta.includes(intento[i])) {
-      resultado += `<span style="background:orange;color:white">${intento[i]}</span>`;
-    } else {
-      resultado += `<span style="background:grey;color:white">${intento[i]}</span>`;
-    }
-  }
-
-  document.getElementById("grid").innerHTML += `<div>${resultado}</div>`;
-  input.value = "";
-  intentos--;
-
-  if (intento === palabraSecreta) {
-    alert("¡Acertaste!");
-  } else if (intentos === 0) {
-    alert("Perdiste, era: " + palabraSecreta);
-  }
-}
-</script>
