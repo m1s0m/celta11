@@ -1,0 +1,31 @@
+<h1>Bingo Celta</h1>
+<div id="bingo" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
+<button onclick="startBingo()">Empezar</button>
+<div id="jugador"></div>
+
+<script>
+let jugadores = [];
+let conceptos = [
+  "Canterano", "≥1.90m", "≤1.68m", "Goleador de temporada",
+  "Pierna izquierda", "Pierna derecha", "Defensa", "Delantero",
+  "Centrocampista", "Extranjero", "≥200 partidos", "≥50 goles",
+  "Jugó en segunda", "≥5 equipos", "Menos de 3 años en el club", "≥10 años en el club"
+];
+
+fetch('data/jugadores.json')
+  .then(res => res.json())
+  .then(data => jugadores = data);
+
+function startBingo() {
+  document.getElementById("bingo").innerHTML = conceptos
+    .map(c => `<div onclick="this.style.background='lightgreen'">${c}</div>`).join("");
+
+  let idx = 0;
+  const intervalo = setInterval(() => {
+    if (idx >= jugadores.length) { clearInterval(intervalo); return; }
+    const j = jugadores[idx];
+    document.getElementById("jugador").innerText = `${j.nombre} ${j.apellido}`;
+    idx++;
+  }, 10000);
+}
+</script>
