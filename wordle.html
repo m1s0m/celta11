@@ -49,3 +49,206 @@
 </div>
 
 <script>
+/* Wordle Celta - implementación original
+   - carga data/jugadores.json
+   - apellidos normalizados (sin acentos ni espacios)
+   - puzzle diario (baseDate configurable)
+   - guarda intento en localStorage por día para evitar perder progreso
+*/
+
+const BASE_DATE = new Date(2024,0,1); // 1 Jan 2024 como índice base (puedes cambiar)
+const MAX_ATTEMPTS = 6;
+let jugadores = [];
+let wordList = [];          // lista de apellidos normalizados
+let playersByKey = {};     // mapa key->player (para foto y nombre)
+let chosenWord = "";
+let chosenPlayer = null;
+let attempts = [];
+let gameDate = new Date(); // por defecto hoy
+
+// util normalizar: quita acentos, espacios y no-letras, y pasa a upper
+function normalizeName(s){
+  return (s||"").normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^A-Za-z]/g,'').toUpperCase();
+}
+
+function daysBetween(a,b){
+  const ms = 24*60*60*1000;
+  return Math.floor((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate()) - Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/ms);
+}
+
+function dateToKey(d){
+  return d.toISOString().slice(0,10);
+}
+
+function pickWordForDate(d){
+  const idx = Math.abs(daysBetween(BASE_DATE, d)) % wordList.length;
+  return wordList[idx];
+}
+
+function saveState(){
+  localStorage.setItem('wordle_state_' + dateToKey(gameDate), JSON.stringify(attempts));
+}
+
+function loadState(){
+  const raw = localStorage.getItem('wordle_state_' + dateToKey(gameDate));
+  attempts = raw ? JSON.parse(raw) : [];
+}
+
+function buildGrid(){
+  const grid = document.getElementById('grid');
+  grid.innerHTML = "";
+  const len = chosenWord.length;
+  grid.style.gridTemplateColumns = '';
+  for(let r=0;r<MAX_ATTEMPTS;r++){
+    const row = document.createElement('div');
+    row.className = 'row';
+    for(let c=0;c<len;c++){
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      row.appendChild(cell);
+    }
+    grid.appendChild(row);
+  }
+}
+
+function renderAttempts(){
+  const len = chosenWord.length;
+  const grid = document.getElementById('grid');
+  // clear
+  grid.querySelectorAll('.cell').forEach(cell=>{
+    cell.textContent=''; cell.classList.remove('correct','present','absent');
+  });
+  // render each attempt
+  attempts.forEach((guess, r)=>{
+    const status = evaluateGuess(guess, chosenWord);
+    for(let i=0;i<len;i++){
+      const cell = grid.querySelector(`.cell[data-r="${r}"][data-c="${i}"]`);
+      cell.textContent = guess[i];
+      cell.classList.add(status[i]);
+    }
+  });
+}
+
+function evaluateGuess(guess, secret){
+  // both are uppercase strings, same length
+  const len = secret.length;
+  const status = new Array(len).fill('absent');
+  const secretArr = secret.split('');
+  const guessArr = guess.split('');
+  // first pass correct
+  for(let i=0;i<len;i++){
+    if(guessArr[i] === secretArr[i]){
+      status[i] = 'correct';
+      secretArr[i] = null;
+      guessArr[i] = null;
+    }
+  }
+  // second pass present
+  for(let i=0;i<len;i++){
+    if(!guessArr[i]) continue;
+    const idx = secretArr.indexOf(guessArr[i]);
+    if(idx !== -1){
+      status[i] = 'present';
+      secretArr[idx] = null;
+    }
+  }
+  return status;
+}
+
+function showMessage(txt, err=false){
+  const m = document.getElementById('msg'); m.textContent = txt;
+  m.style.color = err ? 'crimson' : '#065a9e';
+}
+
+function updatePhotoAndTitleOnWin(){
+  const wrap = document.getElementById('photoWrap'); wrap.innerHTML = '';
+  if(chosenPlayer && chosenPlayer.foto){
+    const img = document.createElement('img');
+    img.src = chosenPlayer.foto;
+    img.alt = chosenPlayer.nombre + ' ' + chosenPlayer.apellido;
+    img.className = 'player-photo';
+    wrap.appendChild(img);
+  }
+  if(chosenPlayer){
+    const p = document.createElement('div');
+    p.style.fontWeight='700';
+    p.textContent = `Sí, son ${chosenPlayer.nombre} ${chosenPlayer.apellido}`;
+    wrap.appendChild(p);
+  }
+}
+
+function setDate(d){
+  gameDate = d;
+  document.getElementById('dateLabel').textContent = dateToKey(gameDate);
+  chosenWord = pickWordForDate(gameDate);
+  chosenPlayer = playersByKey[chosenWord] || null;
+  loadState();
+  buildGrid();
+  renderAttempts();
+  showMessage('');
+  if(attempts.includes(chosenWord)){
+    showMessage('Ya jugaste y acertaste este día ✅');
+    updatePhotoAndTitleOnWin();
+  }
+}
+
+document.getElementById('prevDay').addEventListener('click', ()=>{
+  const dt = new Date(gameDate); dt.setDate(dt.getDate()-1); setDate(dt);
+});
+document.getElementById('nextDay').addEventListener('click', ()=>{
+  const dt = new Date(gameDate); dt.setDate(dt.getDate()+1);
+  const today = new Date(); if(dt > today) return; // no futuros
+  setDate(dt);
+});
+
+document.getElementById('submitBtn').addEventListener('click', submitGuess);
+document.getElementById('guessInput').addEventListener('keydown', (e)=>{ if(e.key === 'Enter') submitGuess(); });
+
+function submitGuess(){
+  const raw = document.getElementById('guessInput').value || '';
+  const g = normalizeName(raw);
+  if(!g){ showMessage('Escribe un apellido válido',true); return; }
+  if(g.length !== chosenWord.length){ showMessage(`La palabra es de ${chosenWord.length} letras`,true); return; }
+  if(!wordList.includes(g)){ showMessage('Ese apellido no está en la lista (usa apellidos de la base de datos).',true); return; }
+  if(attempts.length >= MAX_ATTEMPTS){ showMessage('No te quedan intentos', true); return; }
+  attempts.push(g);
+  saveState();
+  renderAttempts();
+  document.getElementById('guessInput').value = '';
+  if(g === chosenWord){
+    showMessage('¡Correcto! 🎉');
+    updatePhotoAndTitleOnWin();
+  } else if(attempts.length >= MAX_ATTEMPTS){
+    showMessage('Se acabaron los intentos. La respuesta era: ' + chosenWord, true);
+  } else {
+    showMessage(`${MAX_ATTEMPTS - attempts.length} intentos restantes`);
+  }
+}
+
+// carga jugadores y prepara listas
+fetch('data/jugadores.json').then(r=>r.json()).then(data=>{
+  jugadores = data;
+  // build normalized lastnames list (apellidos)
+  const tmp = [];
+  jugadores.forEach(p=>{
+    const key = normalizeName(p.apellido);
+    if(key){
+      tmp.push(key);
+      // keep reference to original player (first matching)
+      if(!playersByKey[key]) playersByKey[key] = p;
+    }
+  });
+  // unique
+  wordList = Array.from(new Set(tmp));
+  // if very short or contains varying lengths that's ok
+  // set today as default
+  setDate(new Date());
+}).catch(err=>{
+  document.body.innerHTML = "<p style='color:crimson'>No se pudo cargar data/jugadores.json — pon el archivo en /data/jugadores.json</p>";
+  console.error(err);
+});
+</script>
+</body>
+</html>
