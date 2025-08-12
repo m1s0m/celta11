@@ -1,0 +1,25 @@
+<h1>Adivina el 11</h1>
+<div id="once"></div>
+
+<script>
+let jugadores11 = ["ASPAS", "NOLITO", "MALLO", "CABRAL", "MOSTOVOI"]; // Ejemplo
+
+jugadores11.forEach((pos, i) => {
+  document.getElementById("once").innerHTML += `
+    <div>
+      Posición ${i+1}: 
+      <input id="pos${i}" maxlength="10">
+      <button onclick="checkPos(${i})">Probar</button>
+    </div>`;
+});
+
+function checkPos(i) {
+  const input = document.getElementById("pos" + i);
+  if (input.value.toUpperCase() === jugadores11[i]) {
+    alert("¡Correcto!");
+    input.disabled = true;
+  } else {
+    alert("Incorrecto");
+  }
+}
+</script>
