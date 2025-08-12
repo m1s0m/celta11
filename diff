@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celta Juegos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>🎯 Celta Juegos</h1>
+        <p>Juega cada día, revive partidas anteriores</p>
+    </header>
+
+    <main class="grid">
+        <a href="juegos/juego1.html" class="card">Juego 1</a>
+        <a href="juegos/juego2.html" class="card">Juego 2</a>
+        <a href="juegos/juego3.html" class="card">Juego 3</a>
+        <a href="juegos/juego4.html" class="card">Juego 4</a>
+        <a href="juegos/juego5.html" class="card">Juego 5</a>
+        <a href="juegos/juego6.html" class="card">Juego 6</a>
+        <a href="juegos/juego7.html" class="card">Juego 7</a>
+    </main>
+
+    <footer>
+        <p>© 2025 Celta Juegos. No oficial. Inspirado en futbol-11.com</p>
+    </footer>
+</body>
+</html>
